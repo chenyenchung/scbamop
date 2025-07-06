@@ -1,158 +1,181 @@
-# scbamsplit
+# scbamop
 
-> Last updated: 2023-09-07
+> Last updated: 2025-07-06
 
-An open-source and light-weight tool to subset BAM files based on read tags in parallel
-powered by `htslib` and [`uthash`](https://troydhanson.github.io/uthash/) under MIT license.
+A high-performance single-cell BAM operations toolkit with UMI-based deduplication and cell barcode splitting, powered by vendored `htslib` and [`uthash`](https://troydhanson.github.io/uthash/) under MIT license.
+
+## Features
+
+- **Cell barcode-based BAM splitting**: Subset BAM files by cell barcodes in parallel
+- **UMI-based deduplication**: Memory-efficient 3-pass algorithm for removing PCR duplicates
+- **Multiple platform support**: 10X Genomics v2/v3, sci-RNA-seq3, and custom configurations
+- **Automatic label sanitization**: Secure handling of metadata file labels
+- **High performance**: Optimized for large single-cell datasets
 
 ## Installation
 
-Before installing `scbamsplit`, you will need to install [`samtools`](http://www.htslib.org/) so you get
-`htslib` in your environment. You also need [`CMake`](https://cmake.org/) to build the tool.
+### Prerequisites
 
-Once you have both installed, you should run `samtools --version` in the terminal and expect to see:
+**Build Tools:**
+- CMake (≥ 3.18)
+- C compiler with C99 support (gcc, clang)
+- Git (for submodule management)
 
-```
-samtools 1.17
-Using htslib 1.17
-Copyright (C) 2023 Genome Research Ltd.
-......
-```
+**Runtime Libraries:**
+- zlib development headers
+- bzip2 development headers  
+- liblzma development headers
+- libcurl development headers
 
-Also try `cmake --version`, and you should see this in your terminal:
-
-```
-cmake version 3.26.0
-
-CMake suite maintained and supported by Kitware (kitware.com/cmake).
-```
-
-If you have both tools ready, get the source code of `scbamsplit` by:
-
-```
-git clone https://github.com/chenyenchung/scbamsplit.git
+**Installation on Debian/Ubuntu:**
+```bash
+apt-get update
+apt-get install build-essential cmake git zlib1g-dev libbz2-dev liblzma-dev libcurl4-openssl-dev
 ```
 
-or from [this link](https://github.com/chenyenchung/scbamsplit/archive/refs/heads/main.zip).
+**Installation on RHEL/CentOS/Fedora:**
+```bash
+yum install gcc make cmake git zlib-devel bzip2-devel xz-devel libcurl-devel
+# or dnf install ... on newer systems
+```
 
-If you clone the repository, please run the following command in
-your terminal:
+### Building from Source
 
 ```bash
-cd scbamsplit
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release .. && make && cmake --install .
-```
-This would install the app to `/usr/local/bin`. If you want to install it elsewhere,
-replace the last line above with:
-```
-# Replace the square bracket and enclosed content with your path
-cmake -DCMAKE_BUILD_TYPE=Relase -DCMAKE_INSTALL_PREFIX=[Your preferred path] ..
-make && cmake --install .
+# Clone the repository
+git clone https://github.com/chenyenchung/scbamop.git
+cd scbamop
+
+# Initialize submodules (includes vendored htslib)
+git submodule update --init --recursive
+
+# Build
+mkdir build && cd build
+cmake ..
+make
 ```
 
+The compiled binary `scbamop` will be available in the `build` directory.
 
-If you download from the above link, please decompress it and run the following command in
-your terminal:
+### Debug Builds
+
+For development and debugging, additional sanitizer options are available:
 
 ```bash
-cd scbamsplit-main
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release .. && make && cmake --install .
+# Default debug build (UndefinedBehaviorSanitizer)
+cmake ..
+make
+
+# Memory debugging (AddressSanitizer + UBSan)
+cmake -DENABLE_ASAN=ON ..
+make
+
+# Thread safety testing (ThreadSanitizer only)
+cmake -DENABLE_UBSAN=OFF -DENABLE_TSAN=ON ..
+make
+
+# Release build (no sanitizers)
+cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_UBSAN=OFF ..
+make
 ```
+
 ## Usage
 
-After installation, you should be able to see the following usage decomentation if
-by typing `scbamsplit -h` in your terminal.
+### Basic Command Structure
 
-```
-Program: scbamsplit (Parallel BAM file subset by CBC/UMI)
-Version: v0.3.1 (Dependent on htslib v1.17)
-
-Usage: scbamsplit -f path -m path
-Options:
-
-    Generic:
-        [-o path] [-q MAPQ] [-d] [-r read name length] [-M memory usage (in GB)] [-n] [-v (verbosity)] [-h]
-    CBC/UMI related:
-        [-p platform] [-b CBC tag/field] [-L CBC length] [-u UMI tag/field] [-l UMI length]
-
-    -f/--file: the path for input bam file
-    -m/--meta: the path for input metadata an unquoted two-column csv with column names)
-    -o/--output: the path to export bam files to default: ./)
-    -q/--mapq: Minimal MAPQ threshold for output default: 0)
-    -p/--platform: Pre-fill locations and lengths for CBC and UMI (Supported platform: 10Xv2, 10Xv3, sciRNAseq3
-         (e.g., for 10Xv3, both are stored as read tags. CBC is 16 mers tagged CB, while UMI is 12mers tagged UB).
-    -d/--dedup: Remove duplicated reads with the same cell barcode/UMI combination
-    -b/--cbc-location: If CBC is a read tag, provide the name (e.g., CB); if it is in the read name,
-         provide the field number (e.g., 3) (default: CB)
-    -L/--cbc-length: The length of the barcode you want to filter against (default: 20)
-    -u/--umi-location: If UMI is a read tag, provide the name (e.g., UB); if it is in the read name,
-        provide the field number (e.g., 3) (default: CB)
-    -l/--umi-length: The length of the UMI default: 20)
-    -r/--rn-length: The length of the read name (default: 70)
-    -M/--mem: The estimated maximum amount of memory to use (In GB, default: 4)
-    -@/--threads: Setting the number of threads to use (default: 1)
-    -n/--dry-run: Only print out parameters
-    -v/--verbose: Set verbosity level (1 - 5) (default: 2, 3 if -v provided without a value)
-    -h/--help: Show this documentation
+```bash
+scbamop split -f input.bam -m metadata.csv [options]
 ```
 
-`scbamsplit` requires:
+### Required Arguments
 
-1. A BAM file with reads that are marked by read tags (-f/--file)
-2. A comma-separated file (.csv) (-m/--meta) in which the first column is the value of the tag to filtered
-while the second is the subset identity (e.g., cluster, sample...). `scbamsplit` will generate a BAM file
-for each identity and export reads that contains a tag that belongs to this identity in the file.
+- `-f, --file`: Input BAM file path
+- `-m, --meta`: Metadata CSV file (two columns: barcode, label)
 
-By default, the read tag used to query the provided metadata is `CB` (the read tag that contains
-corrected cell barcode in `cellranger`-aligned BAMs). While if deduplication is set (`-d`), UMI
-is retrieved from `UB`.
+### Common Options
 
-To adapted for various platform, you can use `-p`. Currently, we have 10X Genomics v2 and
-v3 chemistry (invoke with `-p 10Xv2` and `-p 10Xv3` respectively), and sci-RNAseq3 pipeline
-that stores cell barcode and UMI information in the read name (`-p scirnaseq3`).
+- `-o, --output`: Output directory (default: current directory)
+- `-d, --dedup`: Enable UMI-based deduplication
+- `-q, --mapq`: Minimum MAPQ threshold (default: 0)
+- `-v, --verbose`: Verbosity level (0-5, default: 2)
+- `-h, --help`: Show help message
 
-It is important to make sure the retrieved cell barcode and UMI information is compatible
-with the metadata provided. To use a customized setting, you can use `-b` to specify where
-cell barcode is: `-b CR` or any two letter tag will be interpreted as a read tag;
-`-b 3` or any other number will be interpreted as the n-th field delimited by commas in
-the read name (e.g, if the read name is AAA,BBB,CCC,DDD, `-b 3` will retrieve CCC as
-the barcode). `-u` follows the same convention but for UMI.
+### Platform-Specific Options
 
-If the CBC/UMI lengths parsed are not correct, `-L [number]` (CBC) and `-l [number]` (UMI)
-can be used to specify how long a CBC/UMI should be parsed. 
+- `-p, --platform`: Pre-configured platform settings
+  - `10Xv2`: 10X Genomics v2 chemistry
+  - `10Xv3`: 10X Genomics v3 chemistry  
+  - `sciRNAseq3`: sci-RNA-seq3 pipeline
+- `-b, --cbc-location`: Cell barcode tag/field (default: CB)
+- `-u, --umi-location`: UMI tag/field (default: UB)
 
-It is advisable to add `-n`/`--dry-run` to the command, so when you execute the command, nothing but
-**printing the information for the run** will happen. If you are happy with what you see, remove
-`-n`/`--dry-run` to really run the tool.
+### Example Usage
 
-`scbamsplit` is pretty easy on memory usage if you don't need deduplication. On the otherhand,
-since deduplication involves read sorting in memory, you might want to use `-M [number]` to
-restrict the maximum amount of memory `scbamsplit` uses (e.g., `-M 4` will restrict memory
-usage under 4GB).
+**Basic splitting without deduplication:**
+```bash
+scbamop split -f sample.bam -m metadata.csv -o output/
+```
 
-There are some extra functionalities that are optional:
+**10X Genomics data with UMI deduplication:**
+```bash
+scbamop split -f sample.bam -m metadata.csv -d -p 10Xv3 -q 30 -v 3
+```
 
-### MAPQ filtering
+**sci-RNA-seq3 data (barcodes in read names):**
+```bash
+scbamop split -f sample.bam -m metadata.csv -p sciRNAseq3 -d
+```
 
-If you want to set an lower limit of MAPQ for reads to be exported, try `-q`
-(e.g., if you want only reads with MAPQ>=30, try `-q 30` or `--mapq 30`).
+**Custom barcode/UMI locations:**
+```bash
+scbamop split -f sample.bam -m metadata.csv -b CR -u UR -d
+```
 
-### UMI-based deduplication
+## Metadata File Format
 
-Some sequencing techniques involves adding a unique molecule index (UMI) to
-each fragments of interest. In such cases, one might want to keep one read
-from each unique fragment once. To enable this function, please use
-`-d` (or `--dedup`) flag to turn on deduplication.
+The metadata file must be a two-column CSV with headers:
 
-When deduplication is on, all reads that contain CBC and UMI will be sorted by CBC-UMI
-combinations, and the primary mapping record with the highest MAPQ will be kept along with
-all secondary mappings (if present) (New in v0.2.0; in previous versions the first read
-with the same CBC-UMI combo will be kept, which will be confounded by genomic location and
-does not consider MAPQ and primary/secondary mapping info).
+```csv
+barcode,label
+AAACCCAAGAAACACT,CD4_T_cells
+AAACCCAAGAAACCAT,B_cells
+AAACCCAAGAAACCCA,NK_cells
+```
 
-Please note that this function assumes UMIs and filter tags are corrected and contains
-no PCR errors.
+## Security Features
+
+### Automatic Label Sanitization
+
+Output labels from metadata files are automatically sanitized to prevent security vulnerabilities:
+
+- **Path traversal sequences** (`..`) → `__`
+- **Directory separators** (`/`, `\`) → `_`
+- **Hidden file prefixes** (`.`) → `_`
+- **Special characters** → `_`
+
+**Example sanitization:**
+```csv
+barcode,label
+AAACCCAAGAAACACT,CD4/CD8 T-cells        # → CD4_CD8 T-cells
+AAACCCAAGAAACCAT,../../../etc/passwd    # → ___________etc_passwd
+AAACCCAAGAAACCCA,.hidden_file           # → _hidden_file
+```
+
+## UMI Deduplication
+
+The tool uses a memory-efficient 3-pass algorithm:
+
+1. **Pass 1**: Extract read information used for deduplication (CB, UMI, coordinates, and MAPQ)
+2. **Pass 2**: In-memory duplicate marking
+3. **Pass 3**: Write deduplicated reads to output files
+
+When deduplication is enabled (`-d`), reads with identical cell barcode + UMI + genomic coordinates are considered duplicates. The primary mapping with the highest MAPQ is retained.
+Memory usage scales with the number of unique molecules when deduplication is enabled
+
+## License
+
+MIT License - see LICENSE file for details.
+
+## Support
+
+For issues, questions, or feature requests, please open an issue on the GitHub repository.
