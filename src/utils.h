@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 // External library includes
-#include "htslib/sam.h"
+#include <htslib/sam.h>
 
 // Project includes
 #include "hash.h"

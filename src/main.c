@@ -11,7 +11,7 @@
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-#include "htslib/sam.h"
+#include <htslib/sam.h>
 #include "uthash.h"
 #include "hash.h"
 #include "utils.h"
