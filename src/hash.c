@@ -79,6 +79,13 @@ cb2fp* hash_readtag_direct(char *path, const char *prefix, sam_hdr_t *header) {
     } label_to_fp_t;
     label_to_fp_t *label_fps = NULL;
     
+    // Hash table to track which labels we've already warned about
+    typedef struct {
+        char label[MAX_LINE_LENGTH];
+        UT_hash_handle hh;
+    } warned_label_t;
+    warned_label_t *warned_labels = NULL;
+    
     // Open metadata file
     meta_fp = fopen(path, "r");
     if (meta_fp == NULL) {
@@ -177,9 +184,23 @@ cb2fp* hash_readtag_direct(char *path, const char *prefix, sam_hdr_t *header) {
             dot_dot = strstr(dot_dot + 2, "..");
         }
         
-        // Log if label was sanitized
+        // Log if label was sanitized (only once per unique original label)
         if (label_modified) {
-            log_msg("Sanitized label: '%s' -> '%s'", WARNING, original_label, tlabel);
+            warned_label_t *existing_warning;
+            HASH_FIND_STR(warned_labels, original_label, existing_warning);
+            
+            if (!existing_warning) {
+                // First time seeing this label, add warning
+                log_msg("Sanitized label: '%s' -> '%s'", WARNING, original_label, tlabel);
+                
+                // Track that we've warned about this label
+                warned_label_t *new_warning = calloc(1, sizeof(warned_label_t));
+                if (new_warning) {
+                    strncpy(new_warning->label, original_label, sizeof(new_warning->label) - 1);
+                    new_warning->label[sizeof(new_warning->label) - 1] = '\0';
+                    HASH_ADD_STR(warned_labels, label, new_warning);
+                }
+            }
         }
 
         // Check if we already have a file pointer for this label
@@ -293,6 +314,15 @@ cleanup:
                 sam_close(current_label->fp);
             }
             free(current_label);
+        }
+    }
+    
+    // Clean up warned_labels hash table
+    if (warned_labels) {
+        warned_label_t *current_warning, *tmp_warning;
+        HASH_ITER(hh, warned_labels, current_warning, tmp_warning) {
+            HASH_DEL(warned_labels, current_warning);
+            free(current_warning);
         }
     }
     
