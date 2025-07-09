@@ -12,7 +12,7 @@
 #include "htslib/hts.h"
 #include "htslib/tbx.h"
 
-// Comparison function for sorting by molecule (CB, coord, strand, UB, MAPQ desc)
+// Comparison function for sorting by molecule (CB, tid, coord, strand, UB, MAPQ desc)
 int compare_by_molecule(const void *a, const void *b) {
     const read_decision_t *read_a = (const read_decision_t *)a;
     const read_decision_t *read_b = (const read_decision_t *)b;
@@ -21,26 +21,31 @@ int compare_by_molecule(const void *a, const void *b) {
     int cmp = strcmp(read_a->cb, read_b->cb);
     if (cmp != 0) return cmp;
     
-    // 2. Compare genomic coordinate
+    // 2. Compare chromosome/reference ID
+    if (read_a->tid != read_b->tid) {
+        return (read_a->tid < read_b->tid) ? -1 : 1;
+    }
+    
+    // 3. Compare genomic coordinate
     if (read_a->coord != read_b->coord) {
         return (read_a->coord < read_b->coord) ? -1 : 1;
     }
     
-    // 3. Compare strand
+    // 4. Compare strand
     if (read_a->strand != read_b->strand) {
         return read_a->strand - read_b->strand;
     }
     
-    // 4. Compare UMI
+    // 5. Compare UMI
     cmp = strcmp(read_a->ub, read_b->ub);
     if (cmp != 0) return cmp;
     
-    // 5. Compare MAPQ (higher quality first - descending order)
+    // 6. Compare MAPQ (higher quality first - descending order)
     if (read_a->mapq != read_b->mapq) {
         return read_b->mapq - read_a->mapq;
     }
     
-    // 6. Tie-breaker: read index (for stable sorting)
+    // 7. Tie-breaker: read index (for stable sorting)
     if (read_a->read_idx != read_b->read_idx) {
         return (read_a->read_idx < read_b->read_idx) ? -1 : 1;
     }
@@ -195,14 +200,15 @@ int extract_region_decisions(samFile *fp, sam_hdr_t *header,
             continue;
         }
         
-        // Check for secondary alignment (0x100 flag)
-        if (read->core.flag & 0x100) {
-            // Skip secondary alignments
+        // Check for secondary (0x100) or supplementary (0x800) alignment
+        if (read->core.flag & (0x100 | 0x800)) {
+            // Skip secondary/supplementary alignments
             read_idx++;
             continue;
         }
         
-        // Extract genomic coordinate and strand
+        // Extract chromosome, coordinate, and strand
+        decision->tid = read->core.tid;
         decision->coord = read->core.pos;
         decision->strand = bam_is_rev(read) ? 1 : 0;
         
@@ -238,7 +244,7 @@ void mark_duplicates_in_region(region_decisions_t *region) {
     
     log_msg("Pass 2: Sorting %llu reads by molecule", INFO, region->count);
     
-    // Sort by molecule (CB, coord, strand, UB, MAPQ desc)
+    // Sort by molecule (CB, tid, coord, strand, UB, MAPQ desc)
     qsort(region->decisions, region->count, sizeof(read_decision_t), compare_by_molecule);
     
     log_msg("Pass 2: Marking duplicates", INFO);
@@ -258,6 +264,7 @@ void mark_duplicates_in_region(region_decisions_t *region) {
         // Check if this read is from the same molecule as the previous one
         bool same_molecule = (
             strcmp(prev->cb, curr->cb) == 0 &&
+            prev->tid == curr->tid &&
             prev->coord == curr->coord &&
             prev->strand == curr->strand &&
             strcmp(prev->ub, curr->ub) == 0

@@ -37,7 +37,7 @@ typedef enum {
     INFO = 3
 } log_level_t;
 
-void log_message(char* message, log_level_t level, char* log_path, log_level_t OUT_LEVEL, ...);
+void log_message(char* log_path, log_level_t out_level, char* message, log_level_t level, ...);
 #define log_msg(...) log_message(OUT_PATH, OUT_LEVEL, __VA_ARGS__)
 
 // Essential functions

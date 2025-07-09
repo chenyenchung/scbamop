@@ -20,9 +20,10 @@
 // Core data structure for read decisions
 typedef struct {
     uint64_t read_idx;      // Position in original BAM (0-based)
-    char cb[32];            // Cell barcode 
+    char cb[32];            // Cell barcode
     char ub[32];            // UMI
-    int32_t coord;          // Genomic position
+    int32_t tid;            // Chromosome/reference ID (bam core.tid)
+    int32_t coord;          // Genomic start position
     uint8_t strand;         // 0 for +, 1 for -
     uint8_t mapq;           // Mapping quality
     bool keep;              // Set in pass 2
