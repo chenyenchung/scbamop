@@ -213,4 +213,98 @@ if(SANITIZER_FLAGS)
     endif()
 endif()
 
+# Testing (CTest)
+enable_testing()
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+set(TEST_SCRIPTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts")
+set(TEST_WORK_ROOT "${CMAKE_CURRENT_BINARY_DIR}/tests")
+set(TEST_RUNNER "${TEST_SCRIPTS_DIR}/run_test.sh")
+set(TEST_BASE_ARGS
+    --python ${Python3_EXECUTABLE}
+    --scbamop $<TARGET_FILE:${PROJECT_NAME}>
+)
+
+add_test(NAME split_basic
+    COMMAND ${TEST_RUNNER}
+        ${TEST_BASE_ARGS}
+        --mode split
+        --seed 42
+        --num-reads 200
+        --work-dir ${TEST_WORK_ROOT}/split_basic
+        --mapq-threshold 20
+        --dup-rate 0.2
+        --missing-cb-rate 0.05
+        --missing-ub-rate 0.05
+        --cb-unknown-rate 0.1
+        --secondary-rate 0.05
+        --supplementary-rate 0.05
+)
+
+add_test(NAME dedup_basic
+    COMMAND ${TEST_RUNNER}
+        ${TEST_BASE_ARGS}
+        --mode dedup
+        --seed 99
+        --num-reads 200
+        --work-dir ${TEST_WORK_ROOT}/dedup_basic
+        --mapq-threshold 20
+        --dup-rate 0.3
+        --mapq-tie-rate 0.25
+        --secondary-rate 0.1
+        --supplementary-rate 0.1
+)
+
+add_test(NAME dedup_supplementary
+    COMMAND ${TEST_RUNNER}
+        ${TEST_BASE_ARGS}
+        --mode dedup
+        --seed 123
+        --num-reads 200
+        --work-dir ${TEST_WORK_ROOT}/dedup_supplementary
+        --mapq-threshold 20
+        --dup-rate 0.25
+        --secondary-rate 0.15
+        --supplementary-rate 0.4
+)
+
+add_test(NAME label_sanitization
+    COMMAND ${TEST_RUNNER}
+        ${TEST_BASE_ARGS}
+        --mode split
+        --seed 314
+        --num-reads 200
+        --work-dir ${TEST_WORK_ROOT}/label_sanitization
+        --mapq-threshold 20
+        --dup-rate 0.2
+        --missing-cb-rate 0.05
+        --missing-ub-rate 0.05
+        --cb-unknown-rate 0.1
+        --unsafe-label
+)
+
+add_test(NAME dedup_stress
+    COMMAND ${TEST_RUNNER}
+        ${TEST_BASE_ARGS}
+        --mode dedup
+        --seed 777
+        --num-reads 1000000
+        --work-dir ${TEST_WORK_ROOT}/dedup_stress
+        --mapq-threshold 20
+        --dup-rate 0.3
+        --mapq-tie-rate 0.25
+        --secondary-rate 0.05
+        --supplementary-rate 0.05
+)
+
+set_tests_properties(
+    split_basic
+    dedup_basic
+    dedup_supplementary
+    label_sanitization
+    dedup_stress
+    PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
