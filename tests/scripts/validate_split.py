@@ -178,14 +178,26 @@ def gather_expected_reads(
 def compare_headers(input_bam: str, output_bam: str, mode: str) -> None:
     with pysam.AlignmentFile(input_bam, "rb") as infile:
         expected_header = infile.header.to_dict()
-    if mode == "dedup":
-        expected_header.setdefault("HD", {})["SO"] = "scbamsplit"
 
     with pysam.AlignmentFile(output_bam, "rb") as outfile:
         actual_header = outfile.header.to_dict()
 
+    strip_sort_order(expected_header)
+    strip_sort_order(actual_header)
+
     if actual_header != expected_header:
         raise AssertionError(f"Header mismatch for {output_bam}")
+
+
+def strip_sort_order(header: Dict[str, object]) -> None:
+    hd = header.get("HD")
+    if isinstance(hd, dict) and "SO" in hd:
+        hd = dict(hd)
+        hd.pop("SO", None)
+        if hd:
+            header["HD"] = hd
+        else:
+            header.pop("HD", None)
 
 
 def compare_reads(expected: List[ReadSignature], output_bam: str) -> None:

@@ -2,7 +2,7 @@
 
 > Last updated: 2025-07-06
 
-A high-performance single-cell BAM operations toolkit with UMI-based deduplication and cell barcode splitting, powered by vendored `htslib` and [`uthash`](https://troydhanson.github.io/uthash/) under MIT license.
+A high-performance single-cell BAM operations toolkit with UMI-based deduplication and cell barcode splitting, implemented in Go.
 
 ## Features
 
@@ -16,28 +16,7 @@ A high-performance single-cell BAM operations toolkit with UMI-based deduplicati
 
 ### Prerequisites
 
-**Build Tools:**
-- CMake (≥ 3.18)
-- C compiler with C99 support (gcc, clang)
-- Git (for submodule management)
-
-**Runtime Libraries:**
-- zlib development headers
-- bzip2 development headers  
-- liblzma development headers
-- libcurl development headers
-
-**Installation on Debian/Ubuntu:**
-```bash
-apt-get update
-apt-get install build-essential cmake git zlib1g-dev libbz2-dev liblzma-dev libcurl4-openssl-dev
-```
-
-**Installation on RHEL/CentOS/Fedora:**
-```bash
-yum install gcc make cmake git zlib-devel bzip2-devel xz-devel libcurl-devel
-# or dnf install ... on newer systems
-```
+- Go 1.20+ (module-aware)
 
 ### Building from Source
 
@@ -46,38 +25,16 @@ yum install gcc make cmake git zlib-devel bzip2-devel xz-devel libcurl-devel
 git clone https://github.com/chenyenchung/scbamop.git
 cd scbamop
 
-# Initialize submodules (includes vendored htslib)
-git submodule update --init --recursive
+# Build the Go implementation
+go build -o build/scbamop .
 
-# Build
-mkdir build && cd build
-cmake ..
-make
+# Run Go tests
+go test .
 ```
 
-The compiled binary `scbamop` will be available in the `build` directory.
+The Go binary will be available at `build/scbamop`.
 
-### Debug Builds
-
-For development and debugging, additional sanitizer options are available:
-
-```bash
-# Default debug build (UndefinedBehaviorSanitizer)
-cmake ..
-make
-
-# Memory debugging (AddressSanitizer + UBSan)
-cmake -DENABLE_ASAN=ON ..
-make
-
-# Thread safety testing (ThreadSanitizer only)
-cmake -DENABLE_UBSAN=OFF -DENABLE_TSAN=ON ..
-make
-
-# Release build (no sanitizers)
-cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_UBSAN=OFF ..
-make
-```
+`go test ./...` still works but will rerun tests because `go test .` now drives the full suite.
 
 ## Usage
 
