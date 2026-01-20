@@ -32,8 +32,9 @@ func PrintSplitUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "  -q, --mapq INT         MAPQ threshold (default: 0)")
 	fmt.Fprintln(writer, "  -d, --dedup            Enable UMI-based deduplication")
 	fmt.Fprintln(writer, "  -b, --cbc-location STR Cell barcode tag name or field number (default: CB)")
-	fmt.Fprintln(writer, "  -u, --umi-location STR UMI tag name or field number (default: UB)")
+	fmt.Fprintln(writer, "  -u, --umi-location STR UMI tag name or field number (default: UB, use 0 to ignore)")
 	fmt.Fprintln(writer, "  -v, --verbose [INT]    Verbosity level: -v (INFO), -v 5 or --verbose=5 (DEBUG)")
+	fmt.Fprintln(writer, "  --atac                 Ignore UMI checks (disables deduplication)")
 	fmt.Fprintln(writer, "  -h, --help             Show this help message")
 	fmt.Fprintln(writer, "")
 }

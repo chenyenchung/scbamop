@@ -23,6 +23,10 @@ func RunSplit(splitConfig config.SplitConfig) error {
 		printRunConfig(splitConfig)
 	}
 
+	if splitConfig.UMIIgnored && splitConfig.Deduplicate {
+		return fmt.Errorf("UMI is required for deduplication")
+	}
+
 	if err := checkFileReadable(splitConfig.InputPath, "Input BAM"); err != nil {
 		logger.Logf(logging.Error, err.Error())
 		return err
@@ -90,9 +94,13 @@ func splitWithoutDedup(reader *bam.Reader, directMap *metadata.DirectMap, splitC
 		if tagErr != nil {
 			continue
 		}
-		umiValue, tagErr := tag.Extract(record, splitConfig.UMI)
-		if tagErr != nil {
-			continue
+		umiValue := ""
+		if !splitConfig.UMIIgnored {
+			var tagErr error
+			umiValue, tagErr = tag.Extract(record, splitConfig.UMI)
+			if tagErr != nil {
+				continue
+			}
 		}
 		if int(record.MapQ) < splitConfig.MapQThreshold {
 			continue
@@ -103,8 +111,10 @@ func splitWithoutDedup(reader *bam.Reader, directMap *metadata.DirectMap, splitC
 		if lengthErr := tag.ValidateLength(cellBarcode, splitConfig.CellBarcode.Length, "cell barcode"); lengthErr != nil {
 			return fmt.Errorf("read %s: %w", record.Name, lengthErr)
 		}
-		if lengthErr := tag.ValidateLength(umiValue, splitConfig.UMI.Length, "UMI"); lengthErr != nil {
-			return fmt.Errorf("read %s: %w", record.Name, lengthErr)
+		if !splitConfig.UMIIgnored {
+			if lengthErr := tag.ValidateLength(umiValue, splitConfig.UMI.Length, "UMI"); lengthErr != nil {
+				return fmt.Errorf("read %s: %w", record.Name, lengthErr)
+			}
 		}
 
 		writeErr := directMap.WriteRecord(cellBarcode, record)

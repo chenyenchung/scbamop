@@ -39,6 +39,7 @@ type SplitConfig struct {
 	LogLevel      logging.Level
 	CellBarcode   TagMeta
 	UMI           TagMeta
+	UMIIgnored    bool
 }
 
 func DefaultTagMeta(tagName string) TagMeta {

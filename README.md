@@ -55,6 +55,8 @@ scbamop split -f input.bam -m metadata.csv [options]
 - `-d, --dedup`: Enable UMI-based deduplication
 - `-q, --mapq`: Minimum MAPQ threshold (default: 0)
 - `-v, --verbose`: Verbosity level (0-5, default: 2)
+- `--atac`: Ignore UMI checks (deduplication disabled)
+- `-u 0`: Ignore UMI checks (equivalent to `--atac`)
 - `-h, --help`: Show help message
 
 ### Platform-Specific Options
@@ -86,6 +88,11 @@ scbamop split -f sample.bam -m metadata.csv -p sciRNAseq3 -d
 **Custom barcode/UMI locations:**
 ```bash
 scbamop split -f sample.bam -m metadata.csv -b CR -u UR -d
+```
+
+**ATAC-style data (ignore UMI):**
+```bash
+scbamop split -f sample.bam -m metadata.csv --atac
 ```
 
 ## Metadata File Format

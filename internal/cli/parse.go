@@ -48,6 +48,7 @@ func ParseSplitArgs(args []string) (config.SplitConfig, error) {
 		LogLevel:     logging.Warning,
 		CellBarcode:  config.DefaultTagMeta("CB"),
 		UMI:          config.DefaultTagMeta("UB"),
+		UMIIgnored:   false,
 	}
 
 	argumentIndex := 0
@@ -118,10 +119,15 @@ func ParseSplitArgs(args []string) (config.SplitConfig, error) {
 			if parseErr != nil {
 				return splitConfig, parseErr
 			}
+			if value == "0" {
+				splitConfig.UMIIgnored = true
+				break
+			}
 			parseErr = applyTagLocation(value, &splitConfig.UMI)
 			if parseErr != nil {
 				return splitConfig, parseErr
 			}
+			splitConfig.UMIIgnored = false
 		case argument == "-l" || argument == "--umi-length":
 			value, parseErr := nextArgument(args, &argumentIndex, argument)
 			if parseErr != nil {
@@ -135,6 +141,7 @@ func ParseSplitArgs(args []string) (config.SplitConfig, error) {
 				return splitConfig, parseErr
 			}
 			splitConfig.UMI.Length = lengthValue
+			splitConfig.UMIIgnored = false
 		case argument == "-n" || argument == "--dry-run":
 			splitConfig.DryRun = true
 		case argument == "-v" || argument == "--verbose":
@@ -149,6 +156,8 @@ func ParseSplitArgs(args []string) (config.SplitConfig, error) {
 			}
 		case argument == "-h" || argument == "--help":
 			return splitConfig, ErrShowSplitUsage
+		case argument == "--atac":
+			splitConfig.UMIIgnored = true
 		case strings.HasPrefix(argument, "--verbose="):
 			levelValue := strings.TrimPrefix(argument, "--verbose=")
 			parseErr := applyVerbose(&splitConfig, levelValue)
@@ -183,6 +192,9 @@ func ParseSplitArgs(args []string) (config.SplitConfig, error) {
 	}
 	if splitConfig.UMI.Length <= 0 {
 		return splitConfig, fmt.Errorf("UMI length must be larger than 0")
+	}
+	if splitConfig.UMIIgnored && splitConfig.Deduplicate {
+		return splitConfig, fmt.Errorf("UMI is required for deduplication")
 	}
 
 	return splitConfig, nil

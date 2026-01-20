@@ -84,6 +84,27 @@ func TestParseSplitArgsTagField(t *testing.T) {
 	if splitConfig.UMI.Location != config.TagLocationReadName || splitConfig.UMI.Field != 3 {
 		t.Fatalf("unexpected UMI location: %+v", splitConfig.UMI)
 	}
+	if splitConfig.UMIIgnored {
+		t.Fatalf("expected UMI to be enabled")
+	}
+}
+
+func TestParseSplitArgsAtac(t *testing.T) {
+	splitConfig, parseErr := ParseSplitArgs([]string{"-f", "input.bam", "-m", "meta.csv", "--atac"})
+	if parseErr != nil {
+		t.Fatalf("expected no error, got %v", parseErr)
+	}
+	if !splitConfig.UMIIgnored {
+		t.Fatalf("expected UMI to be ignored")
+	}
+
+	splitConfig, parseErr = ParseSplitArgs([]string{"-f", "input.bam", "-m", "meta.csv", "-u", "0"})
+	if parseErr != nil {
+		t.Fatalf("expected no error, got %v", parseErr)
+	}
+	if !splitConfig.UMIIgnored {
+		t.Fatalf("expected UMI to be ignored for -u 0")
+	}
 }
 
 func TestParseSplitArgsMissingRequired(t *testing.T) {
@@ -106,6 +127,7 @@ func TestParseSplitArgsInvalidValues(t *testing.T) {
 		{name: "umi-length", args: []string{"-f", "input.bam", "-m", "meta.csv", "-l", "0"}},
 		{name: "tag", args: []string{"-f", "input.bam", "-m", "meta.csv", "-b", "TOO"}},
 		{name: "verbose", args: []string{"-f", "input.bam", "-m", "meta.csv", "-v", "nope"}},
+		{name: "atac-dedup", args: []string{"-f", "input.bam", "-m", "meta.csv", "--atac", "-d"}},
 		{name: "unknown", args: []string{"-f", "input.bam", "-m", "meta.csv", "--unknown"}},
 	}
 	for _, testCase := range cases {
