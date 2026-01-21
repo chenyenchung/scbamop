@@ -130,11 +130,30 @@ AAACCCAAGAAACCCA,.hidden_file           # → _hidden_file
 The tool uses a memory-efficient 3-pass algorithm:
 
 1. **Pass 1**: Extract read information used for deduplication (CB, UMI, coordinates, and MAPQ)
-2. **Pass 2**: In-memory duplicate marking
+2. **Pass 2**: External sort and duplicate marking with on-disk spill
 3. **Pass 3**: Write deduplicated reads to output files
 
 When deduplication is enabled (`-d`), reads with identical cell barcode + UMI + genomic coordinates are considered duplicates. The primary mapping with the highest MAPQ is retained.
-Memory usage scales with the number of unique molecules when deduplication is enabled
+Memory usage scales with the number of unique molecules when deduplication is enabled.
+
+### Deduplication Memory Usage
+
+Deduplication uses an external-sort pipeline with a fixed-size in-memory chunk buffer. Peak memory is higher than the chunk size due to Go GC overhead and temporary buffer growth.
+
+Rule of thumb:
+- Peak RAM ~ 1.5-2x `SCBAMOP_DEDUP_CHUNK_BYTES` + small overheads
+
+Examples:
+- `SCBAMOP_DEDUP_CHUNK_BYTES=4294967296` (4GB) -> ~6-8GB peak
+- `SCBAMOP_DEDUP_CHUNK_BYTES=6442450944` (6GB) -> ~9-12GB peak
+
+You can tune the chunk size via:
+- `SCBAMOP_DEDUP_CHUNK_BYTES` (bytes, default: 4294967296)
+
+Example:
+```bash
+SCBAMOP_DEDUP_CHUNK_BYTES=6442450944 scbamop split -f input.bam -m metadata.csv -d
+```
 
 ## License
 
